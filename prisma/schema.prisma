@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Quote {
+  id          String   @id @default(uuid())
+  text        String
+  author      String
+  tags        String?  // Store as JSON string for SQLite compatibility
+  likes       Int      @default(0)
+  source      String
+  externalId  String?  @map("external_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations for similarity tracking
+  similarities     QuoteSimilarity[] @relation("QuoteToSimilar")
+  similarToQuotes  QuoteSimilarity[] @relation("SimilarToQuote")
+  
+  // Indexes for performance
+  @@unique([source, externalId], name: "unique_external")
+  @@index([likes(sort: Desc)], name: "idx_likes")
+  @@index([author], name: "idx_author")
+  @@index([source], name: "idx_source")
+  @@map("quotes")
+}
+
+model QuoteSimilarity {
+  id              String  @id @default(uuid())
+  quoteId         String  @map("quote_id")
+  similarQuoteId  String  @map("similar_quote_id")
+  similarityScore Float   @map("similarity_score") // Use Float for SQLite compatibility
+  createdAt       DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  quote       Quote @relation("QuoteToSimilar", fields: [quoteId], references: [id], onDelete: Cascade)
+  similarQuote Quote @relation("SimilarToQuote", fields: [similarQuoteId], references: [id], onDelete: Cascade)
+  
+  // Constraints and indexes
+  @@unique([quoteId, similarQuoteId], name: "unique_similarity")
+  @@index([quoteId, similarityScore(sort: Desc)], name: "idx_quote_similarity")
+  @@map("quote_similarities")
+}
